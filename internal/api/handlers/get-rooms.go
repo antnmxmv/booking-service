@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/antnmxmv/booking-service/internal/booking"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 type getRoomsHandler struct {

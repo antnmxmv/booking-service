@@ -2,4 +2,7 @@ server:
   port: "8080"
   debug: true
 booking:
-  idleReservationTimeout: 1s
+  idleReservationTimeout: 10s
+payment:
+  card:
+    timeout: 5s

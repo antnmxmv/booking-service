@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/antnmxmv/booking-service/internal/booking"
+	"github.com/antnmxmv/booking-service/internal/config"
 	"github.com/antnmxmv/booking-service/internal/payment"
 )
 
@@ -15,7 +16,7 @@ const (
 
 var paymentProviders = []payment.Source{
 	payment.NewCashSource(),
-	payment.NewCardSource(0),
+	payment.NewCardSource(&config.Config{Payment: config.Payment{Card: config.Card{Timeout: time.Second * 5}}}),
 }
 
 func Test_reservationRequest_ToModel(t *testing.T) {

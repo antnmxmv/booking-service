@@ -9,15 +9,16 @@ import (
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/antnmxmv/booking-service/internal/config"
 )
 
 // CardSource is asynchronious payment source. It sends a random state other than 'pending' with delay
 // this is example of payment source can create order for already known credentials by their id
 // and for sms verification it generates link to web form
 type CardSource struct {
-	lastId uint
-	delay  time.Duration
-
+	cnf       *config.Config
+	lastId    uint
 	updatesCh chan Order
 	// ordersCancelingChans is map of doneCh for every pending order
 	// we need it to handle order cancelation just for example
@@ -29,13 +30,13 @@ func (cp *CardSource) subscribe() <-chan Order {
 	return cp.updatesCh
 }
 
-func NewCardSource(delay time.Duration) *CardSource {
+func NewCardSource(cnf *config.Config) *CardSource {
 	rand.Seed(time.Now().Unix())
 	return &CardSource{
+		cnf:                  cnf,
 		lastId:               0,
 		updatesCh:            make(chan Order),
 		ordersCancelingChans: make(map[string]chan struct{}),
-		delay:                delay,
 	}
 }
 
@@ -74,7 +75,7 @@ func (cp *CardSource) createOrder(reservationID string, amount int, details Orde
 			order.Comment = "transfer accepted"
 		}
 
-		t := time.NewTimer(cp.delay)
+		t := time.NewTimer(cp.cnf.Payment.Card.Timeout)
 		select {
 		case <-t.C:
 			delete(cp.ordersCancelingChans, reservationID)

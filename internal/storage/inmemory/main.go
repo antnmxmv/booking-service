@@ -37,6 +37,10 @@ func (s *Storage) WithRoomAvailability(roomAvailability []*RoomAvailability) *St
 	return s
 }
 
+func (s *Storage) Build() booking.Repository {
+	return s
+}
+
 func (s *Storage) WithReservations(reservations []*booking.Reservation) *Storage {
 	for _, r := range reservations {
 		s.reservations[r.ID] = r

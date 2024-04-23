@@ -12,7 +12,7 @@ const roomsAvailabilityRequestWindow = time.Hour * 24 * 365
 
 // BookingService provides business level api for making reservations
 type BookingService struct {
-	config config.Config
+	config *config.Config
 	repo   Repository
 	// cancelationQueue is literaly delayed queue which handles reservation cancelation
 	cancelationQueue DelayedQueue
@@ -22,9 +22,8 @@ type BookingService struct {
 }
 
 func NewBookingService(
-	cnf config.Config,
+	cnf *config.Config,
 	repo Repository,
-	paymentProvider *payment.Provider,
 	reservationOrchestrator *ReservationOrchestrator,
 	queue DelayedQueue,
 ) *BookingService {
@@ -40,7 +39,7 @@ func NewBookingService(
 func (s *BookingService) CreateReservation(userID string, request *ReservationRequest) (*Reservation, error) {
 
 	// send to cancelation queue
-	if err := s.cancelationQueue.SendMessage(request.ID, s.config.GetData().Booking.IdleReservationTimeout); err != nil {
+	if err := s.cancelationQueue.SendMessage(request.ID, s.config.Booking.IdleReservationTimeout); err != nil {
 		return nil, err
 	}
 
@@ -107,12 +106,12 @@ func (s *BookingService) Start(ctx context.Context) error {
 					break
 				}
 				// update status or requeue
-				if time.Since(reservation.LastUpdateTime) > s.config.GetData().Booking.IdleReservationTimeout {
+				if time.Since(reservation.LastUpdateTime) > s.config.Booking.IdleReservationTimeout {
 					if err := s.repo.CancelReservation(reservationID); err != nil {
 						_ = s.cancelationQueue.SendMessage(reservationID, time.Minute)
 					}
 				} else {
-					_ = s.cancelationQueue.SendMessage(reservationID, s.config.GetData().Booking.IdleReservationTimeout-time.Since(reservation.LastUpdateTime))
+					_ = s.cancelationQueue.SendMessage(reservationID, s.config.Booking.IdleReservationTimeout-time.Since(reservation.LastUpdateTime))
 				}
 
 			case <-s.doneCh:
@@ -121,7 +120,7 @@ func (s *BookingService) Start(ctx context.Context) error {
 		}
 	}()
 
-	return s.reservationOrchestrator.run(s.config.GetData().Booking.IdleReservationTimeout)
+	return s.reservationOrchestrator.run(s.config.Booking.IdleReservationTimeout)
 }
 
 func (s *BookingService) Stop(ctx context.Context) error {
