@@ -2,18 +2,20 @@ package handlers
 
 import (
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ReadinessMonitor interface {
 	Load() bool // is ready
 }
 
-func NewReadyzHandler(isReady ReadinessMonitor) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func NewReadyzHandler(isReady ReadinessMonitor) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		if isReady == nil || !isReady.Load() {
-			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+			ctx.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-	})
+		ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+	}
 }

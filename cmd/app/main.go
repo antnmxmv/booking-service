@@ -38,13 +38,15 @@ func createApp() *fx.App {
 			payment.NewCardSource,
 			payment.NewCashSource,
 			func(cash *payment.CashSource, card *payment.CardSource) *payment.Provider {
-				return payment.NewPaymentProvider(cash)
+				return payment.NewPaymentProvider(cash, card)
 			},
 
-			price.NewExampleProvider,
+			jobs.NewPaymentJob,
 
+			price.NewExampleProvider,
 			AsReservationJob(jobs.NewPriceJob, `name:"price-job"`),
-			AsReservationJob(jobs.NewPaymentJob, `name:"payment-job"`),
+
+			AsReservationJob(func(j *jobs.PaymentJob) booking.Job { return j }, `name:"payment-job"`),
 			AsReservationJob(jobs.NewNotificationJob, `name:"notification-job"`),
 
 			fx.Annotate(
@@ -64,7 +66,7 @@ func createApp() *fx.App {
 			AsHook[*config.Loader],
 			AsHook[*payment.CardSource],
 			AsHook[*payment.Provider],
-
+			AsHook[*jobs.PaymentJob],
 			AsHook[*booking.BookingService],
 			AsHook[*api.Controller],
 		),

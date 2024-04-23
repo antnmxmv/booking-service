@@ -69,6 +69,7 @@ func (o *logger) LogEvent(e fxevent.Event) {
 	case *fxevent.Stopping:
 		o.stopTime = time.Now()
 	case *fxevent.Started:
+		o.onStartedFn()
 		log.Println("[app] started in", time.Since(o.startTime).String())
 	case *fxevent.Stopped:
 		log.Printf("[app] stopped in %s total uptime: %s", time.Since(o.stopTime).String(), time.Since(o.startTime).String())

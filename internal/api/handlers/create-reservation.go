@@ -3,13 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/antnmxmv/booking-service/internal/booking"
 	"github.com/antnmxmv/booking-service/internal/payment"
+	"github.com/gin-gonic/gin"
 )
 
 type reservationHandler struct {
@@ -17,44 +16,49 @@ type reservationHandler struct {
 	p *payment.Provider
 }
 
-func NewCreateReservationHandler(bookingService *booking.BookingService, paymentObserver *payment.Provider) http.HandlerFunc {
+func NewCreateReservationHandler(bookingService *booking.BookingService, paymentObserver *payment.Provider) gin.HandlerFunc {
 	return (&reservationHandler{s: bookingService, p: paymentObserver}).handlerFn
 }
 
-func (h *reservationHandler) handlerFn(w http.ResponseWriter, r *http.Request) {
-	setHeaders(w)
+func (h *reservationHandler) handlerFn(ctx *gin.Context) {
+	setHeaders(ctx)
 
-	req, err := h.parseReservationRequest(r)
+	userID := ctx.GetHeader("user_id")
+
+	req := createReservationRequest{}
+	_ = ctx.ShouldBindJSON(&req)
+
+	reservationRequest, err := h.requestToModel(req, userID)
 
 	if err != nil {
-		httpError := err.(httpError)
-		errorJSON(w, httpError.text, httpError.code)
+		ctx.JSON(http.StatusBadRequest, errorJSON(err.Error()))
 		return
 	}
 
-	res, err := h.s.CreateReservation(r.Header.Get("user_id"), req)
+	err = h.validate(reservationRequest)
+
+	if err != nil {
+		httpError := err.(httpError)
+		ctx.JSON(httpError.code, errorJSON(httpError.text))
+		return
+	}
+
+	res, err := h.s.CreateReservation(userID, reservationRequest)
 
 	if err != nil {
 		if errors.Is(err, booking.ErrAlreadyBooked) || errors.Is(err, booking.ErrDuplicate) {
-			errorJSON(w, err.Error(), http.StatusConflict)
+			ctx.JSON(http.StatusConflict, errorJSON(err.Error()))
 		} else if errors.Is(err, booking.ErrNotWorkingDays) ||
 			errors.Is(err, booking.ErrNotListedPaymentType) {
-			errorJSON(w, err.Error(), http.StatusBadRequest)
+			ctx.JSON(http.StatusBadRequest, errorJSON(err.Error()))
 		} else {
-			errorJSON(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			ctx.JSON(http.StatusInternalServerError, errorJSON(http.StatusText(http.StatusInternalServerError)))
 		}
 
 		return
 	}
 
-	outputBytes, err := json.Marshal(res)
-
-	if err != nil {
-		errorJSON(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	w.Write(outputBytes)
+	ctx.JSON(http.StatusOK, reservationModelToResponse(res))
 }
 
 // createReservationRequest object for manual decoding
@@ -64,33 +68,13 @@ type createReservationRequest struct {
 	RoomsRequest   []roomsRequest  `json:"rooms"`
 	PaymentType    string          `json:"payment_type"`
 	PaymentDetails json.RawMessage `json:"payment_details"`
-	StartDate      string          `json:"start_date"`
-	EndDate        string          `json:"end_date"`
+	StartDate      *TimeJSON       `json:"start_date"`
+	EndDate        *TimeJSON       `json:"end_date"`
 }
 
 type roomsRequest struct {
 	RoomType string `json:"type"`
 	Count    uint   `json:"count"`
-}
-
-func (h *reservationHandler) parseReservationRequest(r *http.Request) (*booking.ReservationRequest, error) {
-	req := createReservationRequest{}
-
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, httpError{code: http.StatusInternalServerError, text: fmt.Sprintf("reading request: %s", err.Error())}
-	}
-	if err := json.Unmarshal(bodyBytes, &req); err != nil {
-		return nil, httpError{code: http.StatusInternalServerError, text: fmt.Sprintf("unmarshal json: %s", err.Error())}
-	}
-
-	res, err := h.requestToModel(req, r.Header.Get("user_id"))
-
-	if err != nil {
-		return nil, err
-	}
-
-	return res, h.validate(res)
 }
 
 // requestToModel compress rooms request, conditional unmarshaling and manual time format
@@ -106,14 +90,8 @@ func (h *reservationHandler) requestToModel(r createReservationRequest, userID s
 	}
 
 	var err error
-	if res.StartDate, err = time.Parse(TimeLayout, r.StartDate); err != nil {
-		return nil, httpError{code: http.StatusBadRequest, text: "start_date in wrong format"}
-	}
-	if res.EndDate, err = time.Parse(TimeLayout, r.EndDate); err != nil {
-		return nil, httpError{code: http.StatusBadRequest, text: "end_date in wrong format"}
-	}
 
-	res.StartDate, res.EndDate = toDay(res.StartDate), toDay(res.EndDate)
+	res.StartDate, res.EndDate = toDay(r.StartDate.Time), toDay(r.EndDate.Time)
 
 	res.RoomsRequest = make(booking.RoomsRequest, 0, len(r.RoomsRequest))
 

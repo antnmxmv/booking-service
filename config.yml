@@ -5,4 +5,4 @@ booking:
   idleReservationTimeout: 10s
 payment:
   card:
-    timeout: 5s
+    timeout: 1s
