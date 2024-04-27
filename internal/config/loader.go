@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -33,6 +34,7 @@ func NewLoader(cnf *Config) *Loader {
 		data:   cnf,
 	}
 	flag.StringVar(&res.filePath, "c", "./config.yml", "override path to config.yml file")
+
 	return res
 }
 
@@ -56,6 +58,14 @@ func (c *Loader) loadFile() error {
 		c.data.Payment.Card.TimeoutStr = c.data.Payment.Card.Timeout.String()
 	} else {
 		c.data.Payment.Card.Timeout = duration
+	}
+
+	if _, err := strconv.ParseUint(c.data.Prometheus.Port, 10, 32); err != nil {
+		c.data.Prometheus.Port = "2112"
+	}
+
+	if c.data.Prometheus.Path == "" || c.data.Prometheus.Path[0] != '/' {
+		c.data.Prometheus.Path = "/metrics"
 	}
 	return nil
 }

@@ -14,19 +14,21 @@ import (
 )
 
 type Controller struct {
-	cfg     *config.Config
-	s       *booking.BookingService
-	p       *payment.Provider
-	isReady handlers.ReadinessMonitor
-	server  *http.Server
+	cfg              *config.Config
+	s                *booking.BookingService
+	p                *payment.Provider
+	isReady          handlers.ReadinessMonitor
+	server           *http.Server
+	prometheusServer *middlewares.Prometheus
 }
 
-func NewController(conf *config.Config, s *booking.BookingService, p *payment.Provider, readinessMonitor handlers.ReadinessMonitor) *Controller {
+func NewController(conf *config.Config, s *booking.BookingService, p *payment.Provider, readinessMonitor handlers.ReadinessMonitor, prometheus *middlewares.Prometheus) *Controller {
 	return &Controller{
-		s:       s,
-		cfg:     conf,
-		p:       p,
-		isReady: readinessMonitor,
+		s:                s,
+		cfg:              conf,
+		p:                p,
+		isReady:          readinessMonitor,
+		prometheusServer: prometheus,
 	}
 }
 
@@ -46,7 +48,7 @@ func (c *Controller) buildServer() {
 	r.Use(interceptors...)
 
 	r.GET("/reservation/", handlers.NewGetReservationsHandler(c.s))
-	r.POST("/reservation/", handlers.NewCreateReservationHandler(c.s, c.p))
+	r.POST("/reservation/", c.prometheusServer.Middleware("create_reservation"), handlers.NewCreateReservationHandler(c.s, c.p))
 	r.GET("/hotel/:hotelID/", handlers.NewGetRoomsHandler(c.s))
 
 	r.Handle(http.MethodGet, "/readyz", handlers.NewReadyzHandler(c.isReady))

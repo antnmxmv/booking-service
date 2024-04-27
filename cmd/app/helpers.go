@@ -75,4 +75,16 @@ func (o *logger) LogEvent(e fxevent.Event) {
 		log.Printf("[app] stopped in %s total uptime: %s", time.Since(o.stopTime).String(), time.Since(o.startTime).String())
 	}
 
+	// check if event contains non-nil Err field
+
+	rv := reflect.Indirect(reflect.ValueOf(e))
+	rt := rv.Type()
+	for i, limit := 0, rt.NumField(); i < limit; i++ {
+		fld := rt.Field(i)
+
+		nv, ok := rv.FieldByName(fld.Name).Interface().(error)
+		if ok {
+			log.Printf("[app] fx_event: %T err: %s", e, nv.Error())
+		}
+	}
 }

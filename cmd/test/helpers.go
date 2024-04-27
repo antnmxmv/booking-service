@@ -5,6 +5,7 @@ import (
 
 	"github.com/antnmxmv/booking-service/data"
 	"github.com/antnmxmv/booking-service/internal/api"
+	"github.com/antnmxmv/booking-service/internal/api/middlewares"
 	"github.com/antnmxmv/booking-service/internal/booking"
 	"github.com/antnmxmv/booking-service/internal/booking/jobs"
 	"github.com/antnmxmv/booking-service/internal/config"
@@ -72,7 +73,7 @@ func runTestingApp() *container.App {
 	)
 	app.AddContainer(bookingService)
 
-	controller := api.NewController(config.Config, bookingService, paymentProvider, app.IsReady)
+	controller := api.NewController(config.Config, bookingService, paymentProvider, app.IsReady, middlewares.NewPrometheus(config.Config))
 	app.AddContainer(controller)
 
 	go app.Run()

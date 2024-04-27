@@ -2,20 +2,10 @@ package middlewares
 
 import (
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
-
-type responseWriter struct {
-	http.ResponseWriter
-	code int
-}
-
-func (w *responseWriter) WriteHeader(statusCode int) {
-	w.code = statusCode
-}
 
 func Logger(ctx *gin.Context) {
 	startTime := time.Now()

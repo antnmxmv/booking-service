@@ -6,6 +6,7 @@ import (
 	"github.com/antnmxmv/booking-service/data"
 	"github.com/antnmxmv/booking-service/internal/api"
 	"github.com/antnmxmv/booking-service/internal/api/handlers"
+	"github.com/antnmxmv/booking-service/internal/api/middlewares"
 	"github.com/antnmxmv/booking-service/internal/booking"
 	"github.com/antnmxmv/booking-service/internal/booking/jobs"
 	"github.com/antnmxmv/booking-service/internal/config"
@@ -21,6 +22,7 @@ func createApp() *fx.App {
 	isReady := &atomic.Bool{}
 
 	return fx.New(
+
 		fx.WithLogger(func() fxevent.Logger {
 			return &logger{onStartedFn: func() { isReady.Store(true) }}
 		}),
@@ -59,6 +61,8 @@ func createApp() *fx.App {
 			fx.Annotate(queue.NewDelayedQueue[string], fx.As(new(booking.DelayedQueue))),
 
 			booking.NewBookingService,
+
+			middlewares.NewPrometheus,
 			api.NewController,
 		),
 

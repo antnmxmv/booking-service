@@ -3,9 +3,10 @@ package config
 import "time"
 
 type Config struct {
-	Server  Server  `yaml:"server"`
-	Booking Booking `yaml:"booking"`
-	Payment Payment `yaml:"payment"`
+	Server     Server     `yaml:"server"`
+	Booking    Booking    `yaml:"booking"`
+	Payment    Payment    `yaml:"payment"`
+	Prometheus Prometheus `yaml:"prometheus"`
 }
 
 type Server struct {
@@ -20,6 +21,11 @@ type Booking struct {
 
 type Payment struct {
 	Card Card `yaml:"card"`
+}
+
+type Prometheus struct {
+	Port string `yaml:"port"`
+	Path string `yaml:"path"`
 }
 
 type Card struct {
