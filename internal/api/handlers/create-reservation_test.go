@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/antnmxmv/booking-service/internal/booking"
+	"github.com/antnmxmv/booking-service/internal/config"
 	"github.com/antnmxmv/booking-service/internal/payment"
 )
 
@@ -15,11 +16,11 @@ const (
 
 var paymentProviders = []payment.Source{
 	payment.NewCashSource(),
-	payment.NewCardSource(0),
+	payment.NewCardSource(&config.Config{Payment: config.Payment{Card: config.Card{Timeout: time.Second * 5}}}),
 }
 
 func Test_reservationRequest_ToModel(t *testing.T) {
-	now := time.Now()
+	now := &TimeJSON{time.Now()}
 
 	defaultRoomsRequest := []roomsRequest{{RoomType: "lux", Count: 2}, {RoomType: "other", Count: 5}}
 	defaulRoomsModel := booking.RoomsRequest{{RoomType: "lux", Count: 2}, {RoomType: "other", Count: 5}}
@@ -34,50 +35,26 @@ func Test_reservationRequest_ToModel(t *testing.T) {
 			name: "all good",
 			req: createReservationRequest{
 				RoomsRequest: defaultRoomsRequest,
-				StartDate:    now.Format(TimeLayout),
-				EndDate:      now.Format(TimeLayout),
+				StartDate:    now,
+				EndDate:      now,
 				PaymentType:  "cash",
 			},
 			hotelID: validHotelID,
 			want: &booking.ReservationRequest{
 				HotelID:      validHotelID,
 				RoomsRequest: defaulRoomsModel,
-				StartDate:    toDay(now),
-				EndDate:      toDay(now),
+				StartDate:    toDay(now.Time),
+				EndDate:      toDay(now.Time),
 				PaymentType:  "cash",
 			},
 			wantErr: false,
 		},
 		{
-			name: "wrong start date",
-			req: createReservationRequest{
-				RoomsRequest: defaultRoomsRequest,
-				StartDate:    "wrong date",
-				EndDate:      now.Format(TimeLayout),
-				PaymentType:  "cash",
-			},
-			hotelID: validHotelID,
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "wrong end date",
-			req: createReservationRequest{
-				RoomsRequest: defaultRoomsRequest,
-				StartDate:    now.Format(TimeLayout),
-				EndDate:      "wrong date",
-				PaymentType:  "cash",
-			},
-			hotelID: validHotelID,
-			want:    nil,
-			wantErr: true,
-		},
-		{
 			name: "wrong hotel_id format",
 			req: createReservationRequest{
 				RoomsRequest: defaultRoomsRequest,
-				StartDate:    now.Format(TimeLayout),
-				EndDate:      now.Format(TimeLayout),
+				StartDate:    now,
+				EndDate:      now,
 				PaymentType:  "cash",
 			},
 			hotelID: "",
@@ -93,8 +70,8 @@ func Test_reservationRequest_ToModel(t *testing.T) {
 					{RoomType: "1", Count: 2},
 					{RoomType: "2", Count: 1},
 				},
-				StartDate:   now.Format(TimeLayout),
-				EndDate:     now.Format(TimeLayout),
+				StartDate:   now,
+				EndDate:     now,
 				PaymentType: "cash",
 			},
 			hotelID: validHotelID,
@@ -104,8 +81,8 @@ func Test_reservationRequest_ToModel(t *testing.T) {
 					{RoomType: "1", Count: 3},
 					{RoomType: "2", Count: 1},
 				},
-				StartDate:   toDay(now),
-				EndDate:     toDay(now),
+				StartDate:   toDay(now.Time),
+				EndDate:     toDay(now.Time),
 				PaymentType: "cash",
 			},
 			wantErr: false,
@@ -152,8 +129,8 @@ func Test_reservationHandler_validate(t *testing.T) {
 					{RoomType: "lux", Count: 1},
 				},
 				PaymentType: "cash",
-				StartDate:   time.Now(),
-				EndDate:     time.Now(),
+				StartDate:   toDay(time.Now()),
+				EndDate:     toDay(time.Now()),
 			},
 			out: nil,
 		},
@@ -164,8 +141,8 @@ func Test_reservationHandler_validate(t *testing.T) {
 					{RoomType: "lux", Count: 0},
 				},
 				PaymentType: "cash",
-				StartDate:   time.Now(),
-				EndDate:     time.Now(),
+				StartDate:   toDay(time.Now()),
+				EndDate:     toDay(time.Now()),
 			},
 			out: roomsCountError,
 		},
@@ -174,8 +151,8 @@ func Test_reservationHandler_validate(t *testing.T) {
 			in: &booking.ReservationRequest{
 				RoomsRequest: []booking.RoomRequest{},
 				PaymentType:  "cash",
-				StartDate:    time.Now(),
-				EndDate:      time.Now(),
+				StartDate:    toDay(time.Now()),
+				EndDate:      toDay(time.Now()),
 			},
 			out: roomsCountError,
 		},
@@ -186,8 +163,8 @@ func Test_reservationHandler_validate(t *testing.T) {
 					{RoomType: "", Count: 1},
 				},
 				PaymentType: "cash",
-				StartDate:   time.Now(),
-				EndDate:     time.Now(),
+				StartDate:   toDay(time.Now()),
+				EndDate:     toDay(time.Now()),
 			},
 			out: roomTypeEmptyError,
 		},
@@ -198,8 +175,8 @@ func Test_reservationHandler_validate(t *testing.T) {
 					{RoomType: "lux", Count: 1},
 				},
 				PaymentType: "wrong",
-				StartDate:   time.Now(),
-				EndDate:     time.Now(),
+				StartDate:   toDay(time.Now()),
+				EndDate:     toDay(time.Now()),
 			},
 			out: paymentTypeError,
 		},
@@ -210,8 +187,8 @@ func Test_reservationHandler_validate(t *testing.T) {
 					{RoomType: "lux", Count: 1},
 				},
 				PaymentType: "cash",
-				StartDate:   time.Now().Add(time.Hour),
-				EndDate:     time.Now(),
+				StartDate:   toDay(time.Now().Add(time.Hour * 24)),
+				EndDate:     toDay(time.Now()),
 			},
 			out: datesOrderError,
 		},
@@ -222,8 +199,8 @@ func Test_reservationHandler_validate(t *testing.T) {
 					{RoomType: "lux", Count: 1},
 				},
 				PaymentType: "cash",
-				StartDate:   time.Time{},
-				EndDate:     time.Now(),
+				StartDate:   toDay(time.Time{}),
+				EndDate:     toDay(time.Now()),
 			},
 			out: wrongDatesError,
 		},
@@ -234,8 +211,8 @@ func Test_reservationHandler_validate(t *testing.T) {
 					{RoomType: "lux", Count: 1},
 				},
 				PaymentType: "card",
-				StartDate:   time.Now(),
-				EndDate:     time.Now(),
+				StartDate:   toDay(time.Now()),
+				EndDate:     toDay(time.Now()),
 			},
 			out: nil,
 		},

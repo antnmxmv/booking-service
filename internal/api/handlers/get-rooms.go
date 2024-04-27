@@ -1,42 +1,35 @@
 package handlers
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/antnmxmv/booking-service/internal/booking"
-	"github.com/go-chi/chi"
+	"github.com/gin-gonic/gin"
 )
 
 type getRoomsHandler struct {
 	s *booking.BookingService
 }
 
-func NewGetRoomsHandler(bookingService *booking.BookingService) http.HandlerFunc {
+func NewGetRoomsHandler(bookingService *booking.BookingService) gin.HandlerFunc {
 	return (&getRoomsHandler{s: bookingService}).handlerFn
 }
 
-func (h *getRoomsHandler) handlerFn(w http.ResponseWriter, r *http.Request) {
-	setHeaders(w)
+func (h *getRoomsHandler) handlerFn(ctx *gin.Context) {
+	setHeaders(ctx)
 
-	hotelID := chi.URLParam(r, "hotelID")
+	hotelID := ctx.Param("hotelID")
 	if hotelID == "" {
-		errorJSON(w, "bad request", http.StatusBadRequest)
+		ctx.JSON(http.StatusBadRequest, gin.Error{Err: errors.New("bad request")})
 		return
 	}
 
 	res, err := h.s.GetAvailableRoomTypes(hotelID)
 	if err != nil {
-		errorJSON(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		ctx.JSON(http.StatusInternalServerError, gin.Error{Err: errors.New(http.StatusText(http.StatusInternalServerError))})
 		return
 	}
 
-	outputBytes, err := json.Marshal(res)
-
-	if err != nil {
-		errorJSON(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	w.Write(outputBytes)
+	ctx.JSON(http.StatusOK, res)
 }

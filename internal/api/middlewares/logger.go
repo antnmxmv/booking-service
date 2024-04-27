@@ -2,37 +2,21 @@ package middlewares
 
 import (
 	"log"
-	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/middleware"
+	"github.com/gin-gonic/gin"
 )
 
-type responseWriter struct {
-	http.ResponseWriter
-	code int
-}
+func Logger(ctx *gin.Context) {
+	startTime := time.Now()
 
-func (w *responseWriter) WriteHeader(statusCode int) {
-	w.code = statusCode
-}
+	ctx.Next()
 
-func Logger() func(http.Handler) http.Handler {
-	f := func(h http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			startTime := time.Now()
+	r := ctx.Request
 
-			rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-			h.ServeHTTP(rw, r)
-
-			level := "INF"
-			if rw.Status() >= 500 {
-				level = "ERR"
-			}
-			log.Printf("[%s] method=%s path=%s code=%d duration_ms=%0.6f", level, r.Method, r.URL.Path, rw.Status(), float64(time.Since(startTime).Nanoseconds())/100000)
-
-		}
-		return http.HandlerFunc(fn)
+	level := "INF"
+	if ctx.Writer.Status() >= 500 {
+		level = "ERR"
 	}
-	return f
+	log.Printf("[%s] method=%s path=%s code=%d duration=%s", level, r.Method, r.URL.Path, ctx.Writer.Status(), time.Since(startTime).String())
 }

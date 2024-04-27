@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"time"
 
 	"github.com/antnmxmv/booking-service/data"
 	"github.com/antnmxmv/booking-service/internal/api"
+	"github.com/antnmxmv/booking-service/internal/api/middlewares"
 	"github.com/antnmxmv/booking-service/internal/booking"
 	"github.com/antnmxmv/booking-service/internal/booking/jobs"
 	"github.com/antnmxmv/booking-service/internal/config"
@@ -26,7 +26,7 @@ func (m BaseContainer) Stop(_ context.Context) error {
 	return nil
 }
 
-var DefaultConfigData = config.Data{
+var DefaultConfigData = config.Config{
 	Server: config.Server{
 		Port:  "8080",
 		Debug: true,
@@ -37,21 +37,21 @@ var DefaultConfigData = config.Data{
 }
 
 type Config struct {
-	config.Data
+	*config.Config
 	BaseContainer
 }
 
-func (m *Config) GetData() config.Data {
-	return m.Data
+func (m *Config) GetData() config.Config {
+	return *m.Config
 }
 
 func runTestingApp() *container.App {
 	app := container.NewApp()
 
-	config := &Config{Data: DefaultConfigData}
+	config := &Config{Config: &DefaultConfigData}
 	app.AddContainer(config)
 
-	cardPaymentSource := payment.NewCardSource(time.Second * 5)
+	cardPaymentSource := payment.NewCardSource(config.Config)
 	app.AddContainer(cardPaymentSource)
 
 	paymentProvider := payment.NewPaymentProvider(cardPaymentSource, payment.NewCashSource())
@@ -66,15 +66,14 @@ func runTestingApp() *container.App {
 		jobs.NewNotificationJob(),
 	)
 	bookingService := booking.NewBookingService(
-		config,
+		config.Config,
 		repository,
-		paymentProvider,
 		reservationOrchestrator,
 		queue.NewDelayedQueue[string](),
 	)
 	app.AddContainer(bookingService)
 
-	controller := api.NewController(bookingService, paymentProvider, config, app.IsReady)
+	controller := api.NewController(config.Config, bookingService, paymentProvider, app.IsReady, middlewares.NewPrometheus(config.Config))
 	app.AddContainer(controller)
 
 	go app.Run()
